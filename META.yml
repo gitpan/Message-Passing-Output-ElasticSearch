@@ -28,8 +28,9 @@ requires:
   Moose: 0
   MooseX::Types: 0
   Try::Tiny: 0
+  aliased: 0
   namespace::autoclean: 0
 resources:
   repository: git://github.com/suretec/Message-Passing-Output-ElasticSearch.git
-version: 0.001
+version: 0.002
 x_authority: GHENRY
