@@ -24,13 +24,18 @@ requires:
   AnyEvent: 0
   ElasticSearch: 0
   ElasticSearch::Transport::AEHTTP: 0
+  JSON: 0
   Message::Passing: 0.001
   Moose: 0
   MooseX::Types: 0
+  MooseX::Types::DateTime: 0
+  MooseX::Types::ISO8601: 0
+  MooseX::Types::Moose: 0
+  Scalar::Util: 0
   Try::Tiny: 0
   aliased: 0
   namespace::autoclean: 0
 resources:
   repository: git://github.com/suretec/Message-Passing-Output-ElasticSearch.git
-version: 0.002
+version: 0.003
 x_authority: GHENRY
