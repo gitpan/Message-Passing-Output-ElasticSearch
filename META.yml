@@ -37,5 +37,5 @@ requires:
   namespace::autoclean: 0
 resources:
   repository: git://github.com/suretec/Message-Passing-Output-ElasticSearch.git
-version: 0.003
+version: 0.004
 x_authority: GHENRY

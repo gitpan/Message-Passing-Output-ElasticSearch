@@ -10,9 +10,10 @@ use aliased 'DateTime' => 'DT';
 use MooseX::Types::ISO8601 qw/ ISO8601DateTimeStr /;
 use MooseX::Types::DateTime qw/ DateTime /;
 use JSON qw/ encode_json /;
+use Data::Dumper;
 use namespace::autoclean;
 
-our $VERSION = '0.003';
+our $VERSION = '0.004';
 $VERSION = eval $VERSION;
 
 with 'Message::Passing::Role::Output';
@@ -33,6 +34,7 @@ has _es => (
             transport => "aehttp",
             servers => $self->elasticsearch_servers,
             timeout => 30,
+            no_refresh => 1,
  #           trace_calls => 1,
         );
     }
@@ -78,11 +80,7 @@ sub consume {
     }
     $date ||= DT->from_epoch(epoch => time());
     my $type = $data->{__CLASS__} || 'unknown';
-    my $index_name = 'logstash-' . $date->year . '.' . sprintf("%02d", $date->month) . '.' . sprintf("%02d", $date->day);
-    if ($index_name !~ /logstash-2012/) {
-        use Data::Dumper;
-        die "BUG - We generated a message from before 2012 - Payload " . Dumper($data);
-    }
+    my $index_name = $self->_index_name_by_dt($date);
     $self->_indexes->{$index_name} = 1;
     my $to_queue = {
         type => $type,
@@ -101,6 +99,11 @@ sub consume {
     if (scalar(@{$self->queue}) > 1000) {
         $self->_flush;
     }
+}
+
+sub _index_name_by_dt {
+    my ($self, $dt) = @_;
+    return 'logstash-' . $dt->year . '.' . sprintf("%02d", $dt->month) . '.' . sprintf("%02d", $dt->day);
 }
 
 has _am_flushing => (
@@ -187,6 +190,42 @@ sub _flush {
         }
     });
 }
+
+has _archive_timer => (
+    is => 'ro',
+    default => sub {
+        my $self = shift;
+        weaken($self);
+        my $time = 60 * 60 * 24; # Every day
+        AnyEvent->timer(
+            after => 60, # delay 1 hour to start first loop
+            interval => $time,
+            cb => sub { $self->_archive_index() },
+        );
+    },
+);
+
+# _archive_index run 1 time per day to close index older than 7 days and delete
+# index older than 30 days
+#
+sub _archive_index {
+    my ($self) = @_;
+
+    my $dt = DT->from_epoch(epoch => time());
+
+    my $dt_to_close = $dt->clone->subtract(days => 7);
+    my $index_to_close = $self->_index_name_by_dt($dt_to_close);
+    $self->_es->close_index(index => $index_to_close)
+        ->cb( sub { warn "Close index: $index_to_close \n" if $self->verbose; });
+
+    my $dt_to_delete = $dt->clone->subtract(days => 30);
+    my $index_to_delete = $self->_index_name_by_dt($dt_to_delete);
+    $self->_es->delete_index(
+        index           => $index_to_delete,
+        ignore_missing  => 1,
+    )->cb( sub { warn "Delete index: $index_to_delete \n" if $self->verbose;});
+}
+
 
 1;
 
